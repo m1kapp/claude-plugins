@@ -61,3 +61,6 @@ python3 "$DIR/build.py" /tmp/ccusage.json "$OUT" "$PLAN" "$KRWRATE" "$RTK_JSON" 
 # 4) 열기
 opener "$OUT"
 echo "보고서: $OUT"
+
+# 5) 랭킹 제출은 자동으로 하지 않는다(외부 공개이므로 사용자 확인 후 submit.sh로).
+echo "💡 랭킹에 등록하려면(선택): 사용자 확인 후  bash $DIR/submit.sh <닉네임>"
