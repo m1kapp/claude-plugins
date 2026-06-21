@@ -8,6 +8,11 @@ PLAN="${1:-200}"   # $/월 (인자로 변경 가능)
 DAYS="${2:-365}"   # cleanupPeriodDays 목표값 (기본 1년)
 KRWRATE="${USAGE_REPORT_KRW:-1500}"  # 환율(₩/$) 환경변수로 변경 가능
 
+# 익명 고유 ID (제출/리더보드 중복 갱신용). 1회 생성 후 재사용.
+ID_FILE="$HOME/.usage-report-id"
+[ -f "$ID_FILE" ] || python3 -c "import uuid;print(uuid.uuid4())" > "$ID_FILE" 2>/dev/null
+export USAGE_REPORT_ID="$(cat "$ID_FILE" 2>/dev/null)"
+
 # OS별 열기 명령
 opener() {
   if   command -v open     >/dev/null 2>&1; then open "$1"

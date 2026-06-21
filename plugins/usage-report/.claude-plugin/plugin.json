@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "usage-report",
   "displayName": "Usage Report",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Claude Code 사용량을 원화 가성비 보고서(월 탭 + 가격/질적 위젯, 일별·세션·효율·시간대·커밋 필터)로 뽑고, cleanupPeriodDays를 1년으로 보정한다. ccusage 기반.",
   "author": {
     "name": "m1kapp",

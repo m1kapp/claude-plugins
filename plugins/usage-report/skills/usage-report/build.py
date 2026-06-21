@@ -2,7 +2,7 @@
 """ccusage --json -> 원화 월별 가성비 보고서(HTML). 월 탭 + 가격/질적 위젯 분할.
 사용: python build.py <ccusage.json> <out.html> [plan_usd] [krw] [rtk.json] [sessions.json]
 Claude 모델만 집계(구독 가성비 기준). 비-Claude(codex 등)는 제외."""
-import json, sys
+import json, sys, os
 from collections import defaultdict
 from datetime import date as _date
 
@@ -22,6 +22,15 @@ PLAN  = float(sys.argv[3]) if len(sys.argv) > 3 else 200.0
 KRW   = float(sys.argv[4]) if len(sys.argv) > 4 else 1500.0
 RTK_SRC  = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
 SESS_SRC = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
+
+# 월별 플랜 오버라이드: USAGE_REPORT_PLANS="2026-05=100,2026-06=200"
+PLANS = {}
+for part in os.environ.get("USAGE_REPORT_PLANS", "").split(","):
+    if "=" in part:
+        k, v = part.split("=", 1)
+        try: PLANS[k.strip()] = float(v)
+        except Exception: pass
+def plan_for(m): return PLANS.get(m, PLAN)
 
 sess = {}
 if SESS_SRC:
@@ -75,7 +84,7 @@ DMAX = max((x["total"] for m in months for x in dd[m].values()), default=1) or 1
 
 
 def price_panel(mo):
-    models = mm[mo]; tot = sum(models.values()); ratio = tot/PLAN
+    models = mm[mo]; tot = sum(models.values()); pl = plan_for(mo); ratio = tot/pl
     stack=""; legend=""
     for m,c in sorted(models.items(), key=lambda x:-x[1]):
         pct = c/tot*100
@@ -101,13 +110,13 @@ def price_panel(mo):
     return f'''<div class="w">
       <div class="ph">💰 가격</div>
       <div class="wt"><div><div class="wb">₩{won(tot)}</div><div class="ws">정가 환산 · {len(days)}일</div></div>
-        <div class="wr"><div class="rx">{ratio:.0f}×</div><div class="rl">₩{won(PLAN)} 구독 대비</div></div></div>
+        <div class="wr"><div class="rx">{ratio:.0f}×</div><div class="rl">₩{won(pl)} 구독 대비</div></div></div>
       <div class="chart">{bars}{avgline([dd[mo][d]["total"] for d in days], DMAX, lambda a: "₩"+won(a))}</div>
       <div class="ccap">일별 정가 환산 · 최고일 {peak[5:]} ₩{won(dd[mo][peak]["total"])}</div>
       <div class="stk">{stack}</div><div class="lg">{legend}</div>
-      <div class="cmp"><div class="c"><span class="ck">실제 지불</span><span class="cv">₩{won(PLAN)}</span></div>
+      <div class="cmp"><div class="c"><span class="ck">실제 지불</span><span class="cv">₩{won(pl)}</span></div>
         <span class="ar">→</span><div class="c"><span class="ck">API 정가</span><span class="cv hot">₩{won(tot)}</span></div>
-        <span class="ar">=</span><div class="c"><span class="ck">순이득</span><span class="cv good">₩{won(tot-PLAN)}</span></div></div>
+        <span class="ar">=</span><div class="c"><span class="ck">순이득</span><span class="cv good">₩{won(tot-pl)}</span></div></div>
       {rtk_html}
     </div>'''
 
@@ -287,7 +296,8 @@ for m in months:
 dyn_css = "\n".join(css_rules)
 
 nmon  = len(months)
-ratio = grand/(PLAN*nmon) if nmon else 0
+total_plan = sum(plan_for(m) for m in months)
+ratio = grand/total_plan if total_plan else 0
 rtk_banner = ""
 if rtk_total_saved > 0:
     rtk_banner = (f'<div class="rtkbar"><div><div class="tk">🔪 RTK 누적 토큰 절감 (역추적)</div>'
@@ -377,5 +387,56 @@ h1{{font-family:Georgia,serif;font-size:26px;letter-spacing:-.5px}}
 </div>
 </body></html>'''
 open(out, "w").write(html)
+
+# === JSON 출력 (제출/리더보드용 머신리더블 요약) ===
+import os as _os
+summary = {
+    "generated_for": "claude-usage-report",
+    "id": _os.environ.get("USAGE_REPORT_ID", ""),   # 익명 고유 ID(제출 갱신용)
+    "currency_krw_per_usd": KRW,
+    "plan_usd_per_month": PLAN,                       # 기본 플랜
+    "plans_by_month": {m: plan_for(m) for m in months},  # 월별 플랜($200/$100 등)
+    "totals": {
+        "months": nmon,
+        "plan_usd_total": total_plan,
+        "cost_usd": round(grand, 2),
+        "cost_krw": round(grand * KRW),
+        "net_benefit_krw": round((grand - total_plan) * KRW),
+        "ratio": round(ratio, 1),
+    },
+    "months": {},
+}
+for m in months:
+    tot = sum(mm[m].values())
+    s = sess.get(m, {})
+    summary["months"][m] = {
+        "plan_usd": plan_for(m),
+        "cost_usd": round(tot, 2),
+        "cost_krw": round(tot * KRW),
+        "ratio": round(tot / plan_for(m), 1),
+        "models": {k: round(v, 2) for k, v in sorted(mm[m].items(), key=lambda x: -x[1])},
+        "sessions": s.get("sessions"),
+        "chats": s.get("chats"),
+        "per_session": s.get("per_session"),
+        "median_session": s.get("median"),
+        "max_session": s.get("max"),
+        "active_days": s.get("active_days"),
+        "per_day": s.get("per_day"),
+        "efficiency": s.get("eff"),
+        "git": {"commit": s.get("git", {}).get("commit"), "push": s.get("git", {}).get("push")},
+        # 시계열(상세 차트 렌더용)
+        "series": {
+            "daily_cost_krw": {d: round(dd[m][d]["total"] * KRW) for d in sorted(dd[m])},
+            "daily_chats": s.get("daily", {}),
+            "daily_commits": s.get("git", {}).get("daily", {}),
+            "hourly": s.get("hourly", {}),
+            "buckets": s.get("buckets", {}),
+        },
+    }
+out_json = out[:-5] + ".json" if out.endswith(".html") else out + ".json"
+open(out_json, "w").write(json.dumps(summary, ensure_ascii=False, indent=2))
+
 _rtk_msg = f"  | 🔪RTK ₩{rtk_won(rtk_total_saved)} 아낌 ({rtk_total_saved/1_000_000:.1f}M컷)" if rtk_total_saved > 0 else ""
 print(f"OK  {nmon}개월  정가 ₩{won(grand)}  순이득 ₩{won(grand-PLAN*nmon)}  ({ratio:.0f}배){_rtk_msg}")
+print(f"    HTML: {out}")
+print(f"    JSON: {out_json}")
