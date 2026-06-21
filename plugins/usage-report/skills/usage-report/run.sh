@@ -37,8 +37,21 @@ fi
 echo "ccusage 집계 중..."
 npx ccusage@latest --json > /tmp/ccusage.json 2>/dev/null
 
+# 2.5) RTK 토큰 절감(설치돼 있으면) 역추적 집계
+RTK_JSON=""
+if command -v rtk >/dev/null 2>&1; then
+  if rtk gain -f json -m > /tmp/rtk_gain.json 2>/dev/null && [ -s /tmp/rtk_gain.json ]; then
+    RTK_JSON=/tmp/rtk_gain.json
+    echo "RTK 절감 데이터 감지 → 보고서에 반영"
+  fi
+fi
+
+# 2.7) 월별 세션 활동 통계
+echo "세션 활동 분석 중..."
+python3 "$DIR/sess.py" > /tmp/sessions.json 2>/dev/null || echo '{}' > /tmp/sessions.json
+
 # 3) 보고서 생성
-python3 "$DIR/build.py" /tmp/ccusage.json "$OUT" "$PLAN" "$KRWRATE"
+python3 "$DIR/build.py" /tmp/ccusage.json "$OUT" "$PLAN" "$KRWRATE" "$RTK_JSON" /tmp/sessions.json
 
 # 4) 열기
 opener "$OUT"
