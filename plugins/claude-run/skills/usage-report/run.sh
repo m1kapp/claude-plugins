@@ -4,7 +4,7 @@ set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 SETTINGS="$HOME/.claude/settings.json"
 OUT="${USAGE_REPORT_OUT:-$HOME/claude-usage-report.html}"  # 환경변수로 변경 가능
-PLAN="${1:-200}"   # $/월 (인자로 변경 가능)
+PLAN="${1:-$(cat "$HOME/.usage-report-plan" 2>/dev/null || echo 200)}"   # 종목($/월): 인자 > 저장된 종목 > 200
 DAYS="${2:-365}"   # cleanupPeriodDays 목표값 (기본 1년)
 KRWRATE="${USAGE_REPORT_KRW:-1500}"  # 환율(₩/$) 환경변수로 변경 가능
 
