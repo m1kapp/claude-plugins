@@ -11,12 +11,12 @@
   },
   "plugins": [
     {
-      "name": "usage-report",
-      "displayName": "Usage Report",
-      "description": "Claude Code 사용량을 원화 가성비 보고서(월별 위젯 + 일별 그래프)로 뽑고, cleanupPeriodDays를 1년으로 보정",
-      "source": "./plugins/usage-report",
+      "name": "claude-run",
+      "displayName": "Claude Run",
+      "description": "내 Claude 사용량을 clauderank.m1k.app 가성비 랭킹에 갱신(같이 달리기). /claude-run(갱신)·/claude-run-out(삭제). Claude 계정 기준이라 중복·허수 방지. ccusage 기반.",
+      "source": "./plugins/claude-run",
       "category": "productivity",
-      "keywords": ["usage", "cost", "ccusage", "report"]
+      "keywords": ["claude", "run", "usage", "cost", "ranking"]
     }
   ]
 }
