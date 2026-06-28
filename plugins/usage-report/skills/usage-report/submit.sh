@@ -16,7 +16,14 @@ else
   [ -z "$NICK" ] && NICK="$(git config user.name 2>/dev/null || whoami)"
 fi
 if [ -z "$NICK" ]; then echo "닉네임을 주세요: bash submit.sh <닉네임>"; exit 1; fi
-if [ ! -f "$JSON_OUT" ]; then echo "리포트 JSON이 없습니다($JSON_OUT). 먼저 /usage-report 실행."; exit 1; fi
+if [ ! -f "$JSON_OUT" ]; then echo "리포트 JSON이 없습니다($JSON_OUT). 먼저 /claude-run 실행."; exit 1; fi
+
+# 허수 방지: 오직 자신의 Claude 연결 세션(claude_ id)으로만 제출 가능
+RID="$(python3 -c "import json,sys;print(json.load(open('$JSON_OUT')).get('id',''))" 2>/dev/null)"
+case "$RID" in
+  claude_*) : ;;
+  *) echo "⚠️ Claude 계정 세션이 필요해요. Claude Code에 로그인된 상태에서 /claude-run 으로 다시 실행하세요."; exit 1 ;;
+esac
 
 echo "제출: $NICK → $ENDPOINT  (리포트: $JSON_OUT)"
 RESP=$(NICK="$NICK" JSON_OUT="$JSON_OUT" python3 -c 'import json,os;print(json.dumps({"nick":os.environ["NICK"],"report":json.load(open(os.environ["JSON_OUT"]))}))' \
@@ -27,9 +34,23 @@ try:
     d = json.load(sys.stdin)
     if d.get('ok'):
         e = d['entry']
-        print(f\"✅ 등록 완료! 본전배율 {e['ratio']}× · 채팅 {e['chats']:,} · {'$ENDPOINT'}\")
+        print(f\"✅ 합류 완료! 본전배율 {e['ratio']}× · 채팅 {e['chats']:,}\")
     else:
         print('⚠️ ' + str(d.get('error', '제출 실패')))
 except Exception:
     print('⚠️ 응답 파싱 실패 — 엔드포인트 확인: $ENDPOINT')
 "
+
+# 개인 리포트 URL — 출력 + 브라우저로 열기 (내 리포트 보러가기)
+EID=$(printf '%s' "$RESP" | python3 -c "import json,sys
+try: print(json.load(sys.stdin).get('entry',{}).get('id',''))
+except Exception: print('')" 2>/dev/null)
+if [ -n "$EID" ]; then
+  MYURL="$ENDPOINT/u/$EID"
+  echo "🔗 내 리포트: $MYURL"
+  echo "🏃 같이 달리기: $ENDPOINT"
+  if   command -v open     >/dev/null 2>&1; then open "$MYURL"     >/dev/null 2>&1 || true
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$MYURL" >/dev/null 2>&1 || true
+  elif command -v start    >/dev/null 2>&1; then start "$MYURL"    >/dev/null 2>&1 || true
+  fi
+fi

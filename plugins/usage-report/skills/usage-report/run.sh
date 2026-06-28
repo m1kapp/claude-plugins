@@ -8,10 +8,21 @@ PLAN="${1:-200}"   # $/월 (인자로 변경 가능)
 DAYS="${2:-365}"   # cleanupPeriodDays 목표값 (기본 1년)
 KRWRATE="${USAGE_REPORT_KRW:-1500}"  # 환율(₩/$) 환경변수로 변경 가능
 
-# 익명 고유 ID (제출/리더보드 중복 갱신용). 1회 생성 후 재사용.
-ID_FILE="$HOME/.usage-report-id"
-[ -f "$ID_FILE" ] || python3 -c "import uuid;print(uuid.uuid4())" > "$ID_FILE" 2>/dev/null
-export USAGE_REPORT_ID="$(cat "$ID_FILE" 2>/dev/null)"
+# 신원 = Claude 계정 UUID(~/.claude.json) 의 sha256 해시. (원문 비노출, 깃헙/기기 바꿔도 동일)
+# 허수 방지: 오직 자신의 Claude 연결 세션으로만 제출 가능 — 폴백(이메일/기기 UUID) 없음.
+# Claude 로그인이 없으면 빈 id → 리더보드 제출은 불가(로컬 리포트는 그대로 생성됨).
+export USAGE_REPORT_ID="$(python3 - <<'PY'
+import json, hashlib, os
+home = os.path.expanduser("~")
+try:
+    d = json.load(open(os.path.join(home, ".claude.json")))
+    acc = (d.get("oauthAccount") or {}).get("accountUuid")
+    if acc:
+        print("claude_" + hashlib.sha256(acc.encode()).hexdigest()[:32])
+except Exception:
+    pass
+PY
+)"
 
 # OS별 열기 명령
 opener() {
@@ -58,9 +69,5 @@ python3 "$DIR/sess.py" > /tmp/sessions.json 2>/dev/null || echo '{}' > /tmp/sess
 # 3) 보고서 생성
 python3 "$DIR/build.py" /tmp/ccusage.json "$OUT" "$PLAN" "$KRWRATE" "$RTK_JSON" /tmp/sessions.json
 
-# 4) 열기
-opener "$OUT"
-echo "보고서: $OUT"
-
-# 5) 랭킹 제출은 자동으로 하지 않는다(외부 공개이므로 사용자 확인 후 submit.sh로).
-echo "💡 랭킹에 등록하려면(선택): 사용자 확인 후  bash $DIR/submit.sh <닉네임>"
+# 4) JSON/HTML 생성 완료 (로컬 HTML은 자동으로 열지 않음 — 제출 후 웹 리포트 /u/<id> 가 열림)
+echo "리포트 데이터 생성 완료: $OUT"
