@@ -17,11 +17,11 @@ arguments:
 RP="${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/skills/usage-report}"
 [ -d "$RP" ] || RP="$HOME/.claude/skills/usage-report"
 bash "$RP/run.sh"                  # 최신 데이터 생성 + 요금제·기기ID 자동 판별 (로컬 HTML 자동열기 없음)
-bash "$RP/submit.sh" "$ARGUMENTS"  # 랭킹 갱신 + 내 웹 리포트 자동 열림 ($ARGUMENTS=닉네임, 생략 가능)
+bash "$RP/submit.sh" "$ARGUMENTS"  # 랭킹 갱신 + 내 웹 리포트 자동 열림 (닉네임 인자, 생략 가능)
 ```
 
-- **닉네임**: 생략하면 **Claude 계정 이메일 앞부분으로 자동**. 바꾸려면 `$ARGUMENTS`(닉네임)를 주면 `~/.usage-report-nick`에 저장돼 다음부턴 생략해도 같은 이름.
-- **종목(요금제)**: 실제 구독 티어(`~/.claude.json`)로 **자동 판별**($200/$100/$20). 수동 지정 불필요.
+- **닉네임**: 생략하면 **Claude 계정 이메일 앞부분으로 자동**. 바꾸려면 닉네임을 인자로 주면 `~/.usage-report-nick`에 저장돼 다음부턴 생략해도 같은 이름.
+- **종목(요금제)**: 실제 구독 티어(`~/.claude.json`)로 **자동 판별**(200·100·20달러 종목). 수동 지정 불필요.
 - 신원은 **내 Claude 계정**(계정 UUID 해시) 기준 — 깃헙/기기 바꿔도 **합산·갱신**(중복·허수 방지). Claude 로그인이 없으면 제출이 거부된다.
 
 ## 안내
