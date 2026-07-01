@@ -1,5 +1,5 @@
 ---
-description: 내 Claude 사용량을 가성비 랭킹(clauderank.m1k.app)에 갱신한다. 최신 데이터로 매번 그냥 덮어쓰는 단일 명령 — 별도 리포트 생성 단계 없음. 닉네임은 한 번 정하면 계정에 고정. Usage - /claude-run [닉네임]. "랭킹 등록", "랭크 올려", "내 기록 갱신", "얼마나 썼나" 요청 시 사용.
+description: 내 Claude 사용량을 가성비 랭킹(clauderank.m1k.app)에 갱신한다. 최신 데이터로 매번 그냥 덮어쓰는 단일 명령 — 별도 리포트 생성 단계 없음. 종목(요금제)·닉네임은 자동 판별. Usage - /claude-run [닉네임]. "랭킹 등록", "랭크 올려", "내 기록 갱신", "얼마나 썼나" 요청 시 사용.
 disable-model-invocation: false
 allowed-tools: Bash(*)
 arguments:
@@ -16,16 +16,17 @@ arguments:
 ```bash
 RP="${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/skills/usage-report}"
 [ -d "$RP" ] || RP="$HOME/.claude/skills/usage-report"
-bash "$RP/run.sh"            # 최신 사용량 데이터 생성(JSON) + 보존기간 보정 (로컬 HTML 자동열기 없음)
-bash "$RP/submit.sh" "$0"    # 랭킹 갱신 + 내 웹 리포트 자동 열림 ($0=닉네임, 생략 시 저장된 닉)
+bash "$RP/run.sh"                  # 최신 데이터 생성 + 요금제·기기ID 자동 판별 (로컬 HTML 자동열기 없음)
+bash "$RP/submit.sh" "$ARGUMENTS"  # 랭킹 갱신 + 내 웹 리포트 자동 열림 ($ARGUMENTS=닉네임, 생략 가능)
 ```
 
-- `$0`(닉네임)을 주면 `~/.usage-report-nick`에 저장되어 **다음부턴 생략해도 같은 이름**으로 올라간다.
-- 신원은 **내 Claude 계정**(`~/.claude.json` 계정 UUID 해시) 기준 — 깃헙/기기 바꿔도 **한 줄로 갱신**(중복·허수 방지). Claude 로그인이 없으면 제출이 거부된다.
+- **닉네임**: 생략하면 **Claude 계정 이메일 앞부분으로 자동**. 바꾸려면 `$ARGUMENTS`(닉네임)를 주면 `~/.usage-report-nick`에 저장돼 다음부턴 생략해도 같은 이름.
+- **종목(요금제)**: 실제 구독 티어(`~/.claude.json`)로 **자동 판별**($200/$100/$20). 수동 지정 불필요.
+- 신원은 **내 Claude 계정**(계정 UUID 해시) 기준 — 깃헙/기기 바꿔도 **합산·갱신**(중복·허수 방지). Claude 로그인이 없으면 제출이 거부된다.
 
 ## 안내
 
 - 출력의 "✅ 합류 완료! 본전배율 N×", "🔗 내 리포트", "🏃 같이 달리기" 링크를 사용자에게 전달한다(제출 성공 시 내 리포트가 브라우저로 자동 열림).
-- 닉네임이 처음이라 비어 있으면 git 사용자명/whoami로 자동 등록되니, 원하는 이름이 있으면 `/claude-run <닉네임>`으로 한 번 지정하라고 안내한다.
-- **종목(플랜)**은 저장된 값(`~/.usage-report-plan`, 기본 $200)을 쓴다. 종목을 정하거나 바꾸려면 **`/claude-run-200` · `/claude-run-100` · `/claude-run-20`**(각 200m/100m/20m 달리기)으로 한 번 출전하면 저장되고, 이후엔 `/claude-run`만으로 그 종목으로 갱신된다.
+- 닉네임은 이메일 앞부분으로 자동 등록되니, 다른 이름을 원하면 `/claude-run <닉네임>`으로 한 번 지정하라고 안내한다.
+- 종목·닉 모두 자동이라 **그냥 `/claude-run`** 한 줄이면 된다(별도 종목 명령 불필요).
 - 랭킹에서 빠지려면 **`/claude-run-out`** 로 본인 기록을 삭제할 수 있다고 안내한다.
