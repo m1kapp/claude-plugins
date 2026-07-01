@@ -8,11 +8,24 @@ NICK="$1"
 ENDPOINT="${2:-${USAGE_REPORT_ENDPOINT:-https://clauderank.m1k.app}}"
 JSON_OUT="${USAGE_REPORT_OUT:-$HOME/claude-usage-report.html}"; JSON_OUT="${JSON_OUT%.html}.json"
 
-# 닉네임 결정: 인자 → 저장된 닉 → git 이름 → whoami
+# 닉네임 결정: 인자(수동 변경) → 저장된 닉 → 이메일 앞부분(자동) → git 이름 → whoami
+# 대부분은 자동(이메일 @앞). 바꾸고 싶은 사람만 인자로 주면 저장돼서 고정됨.
 if [ -n "$NICK" ]; then
   printf '%s' "$NICK" > "$NICK_FILE"
 else
   NICK="$(cat "$NICK_FILE" 2>/dev/null)"
+  if [ -z "$NICK" ]; then
+    NICK="$(python3 - <<'PY'
+import json, os
+try:
+    oa = (json.load(open(os.path.expanduser("~/.claude.json"))).get("oauthAccount") or {})
+    e = oa.get("emailAddress") or ""
+    print(e.split("@")[0] if "@" in e else "")
+except Exception:
+    print("")
+PY
+)"
+  fi
   [ -z "$NICK" ] && NICK="$(git config user.name 2>/dev/null || whoami)"
 fi
 if [ -z "$NICK" ]; then echo "닉네임을 주세요: bash submit.sh <닉네임>"; exit 1; fi

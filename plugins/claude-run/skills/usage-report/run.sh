@@ -24,6 +24,51 @@ except Exception:
 PY
 )"
 
+# 요금제 자동 판별 + 기기 ID (~/.claude.json 기준). 수동 종목 선택/별도 명령 불필요.
+eval "$(python3 - <<'PY'
+import json, hashlib, os, subprocess, platform, uuid
+home = os.path.expanduser("~")
+tier = ""
+try:
+    oa = (json.load(open(os.path.join(home, ".claude.json"))).get("oauthAccount") or {})
+    tier = (oa.get("organizationRateLimitTier") or oa.get("userRateLimitTier") or "").lower()
+except Exception:
+    pass
+plan = "200" if "20x" in tier else "100" if "5x" in tier else "20" if "pro" in tier else ""
+# 기기 ID: 머신ID 해시(원문 비노출) → 없으면 영구 랜덤 UUID 폴백
+raw = ""
+try:
+    if platform.system() == "Darwin":
+        out = subprocess.check_output(["ioreg", "-rd1", "-c", "IOPlatformExpandedDevice"], text=True)
+        for ln in out.splitlines():
+            if "IOPlatformUUID" in ln:
+                raw = ln.split('"')[-2]; break
+    else:
+        for p in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+            if os.path.exists(p):
+                raw = open(p).read().strip(); break
+except Exception:
+    pass
+if raw:
+    dev = "dev_" + hashlib.sha256(raw.encode()).hexdigest()[:32]
+else:
+    f = os.path.join(home, ".usage-report-device"); v = ""
+    try: v = open(f).read().strip()
+    except Exception: pass
+    if not v:
+        v = uuid.uuid4().hex; open(f, "w").write(v)
+    dev = "dev_" + v
+print(f"AUTO_PLAN={plan}")
+print(f"PLAN_TIER={tier}")
+print(f"DEVICE={dev}")
+PY
+)"
+export USAGE_REPORT_PLAN_TIER="$PLAN_TIER"
+export USAGE_REPORT_DEVICE="$DEVICE"
+# 자동 판별된 종목이 있으면 최우선(수동 인자/저장값보다 우선) → 별도 종목 명령 불필요
+[ -n "$AUTO_PLAN" ] && PLAN="$AUTO_PLAN"
+[ -n "$PLAN_TIER" ] && echo "요금제 자동판별: $PLAN_TIER → \$$PLAN 종목"
+
 # OS별 열기 명령
 opener() {
   if   command -v open     >/dev/null 2>&1; then open "$1"

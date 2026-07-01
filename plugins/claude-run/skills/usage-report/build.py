@@ -393,6 +393,8 @@ import os as _os
 summary = {
     "generated_for": "claude-usage-report",
     "id": _os.environ.get("USAGE_REPORT_ID", ""),   # 익명 고유 ID(제출 갱신용)
+    "device_id": _os.environ.get("USAGE_REPORT_DEVICE", ""),   # 기기 슬롯 키(기기별 합산용)
+    "plan_tier": _os.environ.get("USAGE_REPORT_PLAN_TIER", ""), # 실제 구독 티어(서버 종목 검증용)
     "currency_krw_per_usd": KRW,
     "plan_usd_per_month": PLAN,                       # 기본 플랜
     "plans_by_month": {m: plan_for(m) for m in months},  # 월별 플랜($200/$100 등)
