@@ -41,13 +41,38 @@ esac
 echo "제출: $NICK → $ENDPOINT  (리포트: $JSON_OUT)"
 RESP=$(NICK="$NICK" JSON_OUT="$JSON_OUT" python3 -c 'import json,os;print(json.dumps({"nick":os.environ["NICK"],"report":json.load(open(os.environ["JSON_OUT"]))}))' \
   | curl -s -X POST "$ENDPOINT/api/submit" -H "Content-Type: application/json" -d @-)
-printf '%s' "$RESP" | python3 -c "
-import json, sys
+printf '%s' "$RESP" | JSON_OUT="$JSON_OUT" python3 -c "
+import json, sys, os, calendar, datetime
 try:
     d = json.load(sys.stdin)
     if d.get('ok'):
         e = d['entry']
-        print(f\"✅ 합류 완료! 본전배율 {e['ratio']}× · 채팅 {e['chats']:,}\")
+        # 메시지는 '이번 달' 기준 (누적 X) — 로컬 리포트에서 월별 수치 계산
+        try:
+            rep = json.load(open(os.environ['JSON_OUT']))
+            kst = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=9)
+            now_m = kst.strftime('%Y-%m')
+            ms = rep.get('months', {}); mkeys = sorted(ms)
+            cur = now_m if now_m in ms else (mkeys[-1] if mkeys else '')
+            m = ms[cur]
+            mon = int(cur[5:7]); ratio = m.get('ratio', 0); chats = int(m.get('chats', 0)); cost = m.get('cost_krw', 0)
+            print(f'✅ 갱신 완료! {mon}월 본전배율 {ratio}× · 채팅 {chats:,} · 정가 ₩{cost:,.0f}')
+            i = mkeys.index(cur)
+            dim = calendar.monthrange(int(cur[:4]), mon)[1]
+            elapsed = kst.day if cur == now_m else dim
+            if i > 0:
+                pk = mkeys[i-1]; pm = ms[pk]
+                pdim = calendar.monthrange(int(pk[:4]), int(pk[5:7]))[1]
+                cd = cost / max(elapsed, 1); pd = pm.get('cost_krw', 0) / pdim
+                if pd > 0:
+                    f = cd / pd
+                    fs = f'{f:.1f}배' if f < 10 else f'{f:.0f}배'
+                    line = f'📈 페이스: 하루 ₩{cd:,.0f} — 전달(하루 ₩{pd:,.0f}) 대비 {fs} ' + ('빠름' if f >= 1 else '느림')
+                    if cur == now_m and elapsed < dim:
+                        line += f' · 이대로면 ×{ratio * dim / max(elapsed, 1):.1f} 예상'
+                    print(line)
+        except Exception:
+            print(f\"✅ 합류 완료! 본전배율 {e['ratio']}× · 채팅 {e['chats']:,}\")
     else:
         print('⚠️ ' + str(d.get('error', '제출 실패')))
 except Exception:
